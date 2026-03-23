@@ -1,0 +1,27 @@
+name: Update Quiz Data from Notion
+
+# workflow_dispatch: 내가 깃허브 웹페이지에서 직접 버튼을 눌러야만 실행됨!
+on:
+  workflow_dispatch: 
+
+jobs:
+  update-db:
+    runs-on: ubuntu-latest # 깃허브가 빌려주는 우분투 컴퓨터에서 실행
+
+    steps:
+    - name: 1. 내 깃허브 코드 가져오기
+      uses: actions/checkout@v3
+
+    - name: 2. 파이썬 설치하기
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: 3. 라이브러리(requests) 설치
+      run: pip install -r requirements.txt
+
+    - name: 4. 노션 데이터 긁어오는 파이썬 스크립트 실행!
+      env:
+        NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}     # 깃허브 비밀 금고에서 꺼내오기
+        NOTION_PAGE_ID: ${{ secrets.NOTION_PAGE_ID }} # 깃허브 비밀 금고에서 꺼내오기
+      run: python update_notion.py

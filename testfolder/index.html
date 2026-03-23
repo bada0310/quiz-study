@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>실시간 퀴즈 쇼</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div id="screen-author-list">
+        <h1>🚀 퀴즈 방에 오신 것을 환영합니다!</h1>
+        <h2>문제를 풀 출제자를 선택하세요</h2>
+        <div id="author-list"></div>
+    </div>
+
+    <div id="screen-role-selection" style="display: none;">
+        <h1 id="selected-room-title"></h1>
+        <h2>당신의 역할을 선택해주세요</h2>
+        <div class="role-btn-container">
+            <button class="role-btn questioner" id="btn-questioner">👑 출제자 (방장)</button>
+            <button class="role-btn respondent" id="btn-respondent">🙋 응시자 (참가자)</button>
+        </div>
+        <button class="back-btn" onclick="goBack()">🔙 뒤로 가기</button>
+    </div>
+
+    <div id="screen-quiz-room" style="display: none;">
+        <h1 id="quiz-room-header"></h1>
+        <div id="system-messages" style="color: #888; margin-bottom: 20px;"></div>
+        
+        <div id="quiz-contentArea">
+            <h2 id="question-text">문제가 곧 시작됩니다...</h2>
+            
+            <div id="questioner-ui" style="display: none; margin-top: 40px;">
+                <button class="submit-btn" onclick="startQuestion()" style="background-color: #9C27B0;">🚀 다음 문제 띄우기</button>
+                <button id="btn-check-answer" class="submit-btn" onclick="showAnswer()" style="background-color: #607D8B; cursor: not-allowed;" disabled>
+                    🔒 정답 확인 (대기중...)
+                </button>
+            </div>
+
+            <div id="respondent-ui" style="display: none;">
+                <div id="ui-ox" style="display: none;">
+                    <div class="ox-btn-container">
+                        <button class="ox-btn btn-o" onclick="sendAnswer('O')">O</button>
+                        <button class="ox-btn btn-x" onclick="sendAnswer('X')">X</button>
+                    </div>
+                    <div class="gauge-container">
+                        <div id="gauge-o" class="gauge-fill-o" style="width: 50%;">O (0명)</div>
+                        <div id="gauge-x" class="gauge-fill-x" style="width: 50%;">X (0명)</div>
+                    </div>
+                </div>
+
+                <div id="ui-short" style="display: none;">
+                    <input type="text" id="short-answer-input" class="answer-input" placeholder="정답을 입력하세요">
+                    <button class="submit-btn" onclick="sendShortAnswer()">제출하기</button>
+                    <h3 style="margin-top: 40px;">실시간 제출 답안</h3>
+                    <div id="submitted-answers-container" class="answers-container"></div>
+                </div>
+
+                <div id="ui-result" style="display: none; margin-top: 30px; padding: 30px; background-color: #e8f5e9; border-radius: 15px; border: 2px solid #4CAF50;">
+                    <h2 id="result-answer-text" style="color: #2E7D32; font-size: 32px; margin-bottom: 20px;">정답: </h2>
+                    <hr style="border-top: 1px dashed #4CAF50;">
+                    <div id="result-explanation-text" style="margin-top: 20px; font-size: 18px; line-height: 1.6; text-align: left; white-space: pre-wrap;">
+                        풀이 내용
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws; 
+        let globalData; 
+        let currentRoomName = "";      
+        let currentQuestionIndex = 0;  
+        let currentQuestionData = {};  
+
+        // 처음 서버에서 데이터 가져오기
+        fetch('/api/data')
+            .then(response => response.json())
+            .then(data => {
+                globalData = data;
+                const authorList = document.getElementById('author-list');
+                for (const author in data) {
+                    const btn = document.createElement('button');
+                    btn.className = 'author-btn';
+                    btn.innerText = author + '의 문제 풀기';
+                    btn.onclick = () => showRoleSelection(author);
+                    authorList.appendChild(btn);
+                }
+            });
+
+        function showRoleSelection(authorName) {
+            document.getElementById('screen-author-list').style.display = 'none';
+            document.getElementById('screen-role-selection').style.display = 'block';
+            document.getElementById('selected-room-title').innerText = `[${authorName}] 님의 퀴즈 방`;
+            
+            document.getElementById('btn-questioner').onclick = () => enterQuizRoom(authorName, '출제자');
+            document.getElementById('btn-respondent').onclick = () => enterQuizRoom(authorName, '응시자');
+        }
+
+        function goBack() {
+            document.getElementById('screen-role-selection').style.display = 'none';
+            document.getElementById('screen-author-list').style.display = 'block';
+        }
+
+        function enterQuizRoom(roomName, role) {
+            currentRoomName = roomName; 
+            currentQuestionIndex = 0;   
+            
+            document.getElementById('screen-role-selection').style.display = 'none';
+            document.getElementById('screen-quiz-room').style.display = 'block';
+            document.getElementById('quiz-room-header').innerText = `[${roomName}] 퀴즈 방 - ${role}`;
+
+            if (role === '출제자') {
+                document.getElementById('questioner-ui').style.display = 'block';
+                document.getElementById('respondent-ui').style.display = 'none';
+            } else if (role === '응시자') {
+                document.getElementById('questioner-ui').style.display = 'none';
+                document.getElementById('respondent-ui').style.display = 'block';
+                document.getElementById('ui-ox').style.display = 'block'; 
+                document.getElementById('ui-result').style.display = 'none'; 
+            }
+
+            const wsUrl = `ws://${window.location.host}/ws/${encodeURIComponent(roomName)}/${encodeURIComponent(role)}`;
+            ws = new WebSocket(wsUrl);
+
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'system') {
+                    document.getElementById('system-messages').innerText = data.msg;
+                }
+                // 문제가 시작되었을 때
+                else if (data.type === 'start_question') {
+                    currentQuestionData = data; 
+                    document.getElementById('question-text').innerText = data.question_text;
+                    
+                    if (role === '응시자') {
+                        document.getElementById('ui-result').style.display = 'none';
+                        
+                        // 🔥 정답이 O/X면 버튼 화면, 아니면 주관식 화면 켜기!
+                        const ans = data.answer.toUpperCase();
+                        if (ans === 'O' || ans === 'X') {
+                            document.getElementById('ui-ox').style.display = 'block';
+                            document.getElementById('ui-short').style.display = 'none';
+                        } else {
+                            document.getElementById('ui-ox').style.display = 'none';
+                            document.getElementById('ui-short').style.display = 'block';
+                        }
+                    }
+                    
+                    // (이 아래는 기존과 완벽하게 동일합니다)
+                    document.getElementById('gauge-o').style.width = '50%';
+                    document.getElementById('gauge-o').innerText = 'O (0명)';
+                    document.getElementById('gauge-x').style.width = '50%';
+                    document.getElementById('gauge-x').innerText = 'X (0명)';
+                    document.getElementById('submitted-answers-container').innerHTML = '';
+                    
+                    if (role === '출제자') {
+                        const checkBtn = document.getElementById('btn-check-answer');
+                        checkBtn.disabled = true;
+                        checkBtn.style.backgroundColor = '#607D8B';
+                        checkBtn.style.cursor = 'not-allowed';
+                        checkBtn.innerText = `🔒 정답 확인 (5명 대기중...)`;
+                    }
+                }
+                else if (data.type === 'update_stats') {
+                    const state = data.state;
+                    const totalOx = state.o_count + state.x_count;
+                    if (totalOx > 0) {
+                        const oPercent = Math.round((state.o_count / totalOx) * 100);
+                        const xPercent = 100 - oPercent;
+                        document.getElementById('gauge-o').style.width = oPercent + '%';
+                        document.getElementById('gauge-o').innerText = `O (${state.o_count}명)`;
+                        document.getElementById('gauge-x').style.width = xPercent + '%';
+                        document.getElementById('gauge-x').innerText = `X (${state.x_count}명)`;
+                    }
+                    
+                    const container = document.getElementById('submitted-answers-container');
+                    container.innerHTML = ''; 
+                    state.short_answers.forEach(ans => {
+                        const block = document.createElement('div');
+                        block.className = 'answer-block';
+                        block.innerText = ans;
+                        container.appendChild(block);
+                    });
+                    
+                    if (role === '출제자') {
+                        const checkBtn = document.getElementById('btn-check-answer');
+                        // 🔥 5명 카운트 로직 완벽 복구!
+                        if (state.total_answers >= 5) { 
+                            checkBtn.disabled = false;
+                            checkBtn.style.backgroundColor = '#FF5722';
+                            checkBtn.style.cursor = 'pointer';
+                            checkBtn.innerText = '🔓 정답 확인 및 해설 보기';
+                        } else {
+                            checkBtn.disabled = true;
+                            checkBtn.style.backgroundColor = '#607D8B';
+                            checkBtn.style.cursor = 'not-allowed';
+                            checkBtn.innerText = `🔒 정답 확인 (${5 - state.total_answers}명 대기중...)`;
+                        }
+                    }
+                }
+                // 🔥 서버가 정답을 보여주라고 브로드캐스트 했을 때 실행되는 부분!
+                else if (data.type === 'show_answer') {
+                    if (role === '응시자') {
+                        document.getElementById('ui-ox').style.display = 'none';
+                        document.getElementById('ui-short').style.display = 'none';
+                        document.getElementById('ui-result').style.display = 'block';
+                        
+                        document.getElementById('result-answer-text').innerText = `정답: ${currentQuestionData.answer}`;
+                        document.getElementById('result-explanation-text').innerText = currentQuestionData.explanation || "풀이가 없습니다.";
+                    }
+                }
+            };
+        }
+
+        function sendAnswer(choice) {
+            ws.send(JSON.stringify({ type: 'submit_answer', question_type: 'ox', answer: choice }));
+        }
+
+        function sendShortAnswer() {
+            const input = document.getElementById('short-answer-input');
+            const text = input.value.trim();
+            if (text === '') return alert("답안을 입력해주세요!");
+            ws.send(JSON.stringify({ type: 'submit_answer', question_type: 'short', answer: text }));
+            input.value = ''; 
+        }
+
+        function startQuestion() {
+            const myQuestions = globalData[currentRoomName];
+            if (!myQuestions || currentQuestionIndex >= myQuestions.length) {
+                alert("🎉 준비된 모든 문제가 끝났습니다!");
+                return;
+            }
+            
+            const q = myQuestions[currentQuestionIndex];
+            ws.send(JSON.stringify({
+                type: 'start_question',
+                question_text: q.question,
+                answer: q.answer,
+                explanation: q.explanation
+            }));
+            
+            currentQuestionIndex++;
+        }
+
+        function showAnswer() {
+            ws.send(JSON.stringify({ type: 'show_answer' }));
+        }
+    </script>
+</body>
+</html>

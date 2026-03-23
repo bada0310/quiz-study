@@ -1,0 +1,189 @@
+body {
+    font-family: 'Pretendard', sans-serif; /* 깔끔한 폰트 느낌 */
+    text-align: center;
+    padding: 50px;
+    background-color: #f9f9f9;
+}
+
+h1 {
+    color: #333;
+}
+
+h2 {
+    color: #666;
+    margin-bottom: 30px;
+}
+
+/* 🔥 버튼들을 세로로 정렬하기 위한 컨테이너 */
+#author-list {
+    display: flex;
+    flex-direction: column; /* 가로(row)에서 세로(column)로 변경! */
+    align-items: center;    /* 가운데 정렬 */
+    gap: 15px;              /* 버튼 사이 간격 */
+}
+
+.author-btn {
+    padding: 15px 30px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    width: 300px; /* 버튼 너비를 모두 똑같이 맞춰서 깔끔하게 */
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1); /* 살짝 그림자 추가 */
+    transition: background-color 0.3s, transform 0.1s;
+}
+
+.author-btn:hover {
+    background-color: #45a049;
+    transform: scale(1.05); /* 마우스 올리면 살짝 튀어나오는 효과 */
+}
+
+/* ... (기존 css 코드 유지) ... */
+/* 인사이드 
+/* 🔥 여기서부터 새로 추가할 코드! */
+.role-btn-container {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin-top: 40px;
+}
+
+.role-btn {
+    padding: 30px 40px;
+    font-size: 22px;
+    font-weight: bold;
+    cursor: pointer;
+    border: none;
+    border-radius: 15px;
+    color: white;
+    box-shadow: 0 6px 10px rgba(0,0,0,0.15);
+    transition: transform 0.2s, box-shadow 0.2s;
+    width: 250px;
+}
+
+.role-btn:hover {
+    transform: translateY(-5px); /* 마우스 올리면 위로 살짝 붕 뜨는 효과 */
+    box-shadow: 0 10px 15px rgba(0,0,0,0.2);
+}
+
+/* 출제자는 파란색, 응시자는 주황색 테마 */
+.questioner { background-color: #2196F3; }
+.questioner:hover { background-color: #1976D2; }
+
+.respondent { background-color: #FF9800; }
+.respondent:hover { background-color: #F57C00; }
+
+.back-btn {
+    margin-top: 50px;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    background-color: #e0e0e0;
+    border: none;
+    border-radius: 8px;
+    color: #333;
+    font-weight: bold;
+    transition: background-color 0.2s;
+}
+
+.back-btn:hover { background-color: #ccc; }
+
+/* 🔥 응시자 화면 UI 스타일 */
+.ox-btn-container {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin: 30px 0;
+}
+
+.ox-btn {
+    width: 150px;
+    height: 150px;
+    font-size: 80px;
+    font-weight: bold;
+    border-radius: 20px;
+    border: none;
+    cursor: pointer;
+    color: white;
+    box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+    transition: transform 0.1s;
+}
+
+.ox-btn:active { transform: scale(0.95); }
+.btn-o { background-color: #4CAF50; } /* O는 초록색 */
+.btn-x { background-color: #F44336; } /* X는 빨간색 */
+
+/* 게이지 바 스타일 */
+.gauge-container {
+    width: 80%;
+    max-width: 600px;
+    height: 30px;
+    background-color: #ddd;
+    border-radius: 15px;
+    margin: 0 auto;
+    overflow: hidden;
+    display: flex;
+}
+
+.gauge-fill-o {
+    background-color: #4CAF50;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    transition: width 0.3s ease-in-out;
+}
+
+.gauge-fill-x {
+    background-color: #F44336;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    transition: width 0.3s ease-in-out;
+}
+
+/* 단답형 스타일 */
+.answer-input {
+    padding: 15px;
+    font-size: 18px;
+    width: 60%;
+    max-width: 400px;
+    border: 2px solid #ccc;
+    border-radius: 8px;
+    margin-right: 10px;
+}
+
+.submit-btn {
+    padding: 15px 25px;
+    font-size: 18px;
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.answers-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.answer-block {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    padding: 10px 20px;
+    border-radius: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    font-size: 16px;
+}
