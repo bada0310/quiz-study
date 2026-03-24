@@ -4,12 +4,17 @@
     <meta charset="UTF-8">
     <title>실시간 퀴즈 쇼</title>
     <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div id="screen-author-list">
         <h1>🚀 퀴즈 방에 오신 것을 환영합니다!</h1>
-        <h2>문제를 풀 출제자를 선택하세요</h2>
+        <h2 style="margin-bottom: 40px;">문제를 풀 출제자를 선택하세요</h2>
         <div id="author-list"></div>
+        
+        <hr style="border: 0; border-top: 1px dashed #ccc; width: 80%; margin: 40px auto;">
+        
+        <button class="submit-btn" onclick="showGlobalResultBoard()" style="background-color: #009688; font-size: 22px; width: 350px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">🏆 전체 종합 랭킹 보드 보기</button>
     </div>
 
     <div id="screen-role-selection" style="display: none;">
@@ -19,7 +24,15 @@
             <button class="role-btn questioner" id="btn-questioner">👑 출제자 (방장)</button>
             <button class="role-btn respondent" id="btn-respondent">🙋 응시자 (참가자)</button>
         </div>
-        <button class="back-btn" onclick="goBack()">🔙 뒤로 가기</button>
+        <button class="back-btn" onclick="goBack()" style="margin-top: 50px;">🔙 뒤로 가기</button>
+    </div>
+
+    <div id="screen-result-board" style="display: none;">
+        <h1 id="result-board-title" style="margin-bottom: 40px; color: #333;">🏆 스터디 전체 누적 랭킹 보드</h1>
+        <div style="width: 80%; max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+            <canvas id="scoreChart"></canvas>
+        </div>
+        <button class="back-btn" onclick="goBackToMainFromBoard()" style="margin-top: 40px;">🔙 메인 화면으로 돌아가기</button>
     </div>
 
     <div id="screen-quiz-room" style="display: none;">
@@ -30,17 +43,29 @@
             <h2 id="question-text">문제가 곧 시작됩니다...</h2>
             
             <div id="questioner-ui" style="display: none; margin-top: 40px;">
-                <button class="submit-btn" onclick="startQuestion()" style="background-color: #9C27B0;">🚀 다음 문제 띄우기</button>
+                <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 20px;">
+                    <button class="submit-btn" onclick="prevQuestion()" style="background-color: #795548;">⬅️ 이전 문제</button>
+                    <button class="submit-btn" onclick="startQuestion()" style="background-color: #9C27B0;">🚀 다음 문제</button>
+                </div>
                 <button id="btn-check-answer" class="submit-btn" onclick="showAnswer()" style="background-color: #607D8B; cursor: not-allowed;" disabled>
-                    🔒 정답 확인 (대기중...)
+                    🔒 정답 확인 (5명 대기중...)
                 </button>
+                
+                <div id="monitoring-panel" style="margin-top: 30px; padding: 20px; background-color: #f8f9fa; border-radius: 10px; border: 1px solid #ddd; text-align: left; max-width: 600px; margin-left: auto; margin-right: auto;">
+                    <h3 style="margin-top: 0; color: #333; border-bottom: 2px solid #ddd; padding-bottom: 10px;">📊 실시간 응답 모니터링</h3>
+                    <ul id="monitoring-list" style="font-size: 18px; line-height: 1.8; list-style-type: none; padding-left: 0;">
+                        <li style="color: #888;">아직 제출된 응답이 없습니다.</li>
+                    </ul>
+                </div>
+
+                <button class="back-btn" onclick="goToMain()" style="margin-top: 50px;">🏠 메인 화면으로 (방 종료)</button>
             </div>
 
             <div id="respondent-ui" style="display: none;">
                 <div id="ui-ox" style="display: none;">
                     <div class="ox-btn-container">
-                        <button class="ox-btn btn-o" onclick="sendAnswer('O')">O</button>
-                        <button class="ox-btn btn-x" onclick="sendAnswer('X')">X</button>
+                        <button class="ox-btn btn-o" id="btn-o" onclick="sendAnswer('O')">O</button>
+                        <button class="ox-btn btn-x" id="btn-x" onclick="sendAnswer('X')">X</button>
                     </div>
                     <div class="gauge-container">
                         <div id="gauge-o" class="gauge-fill-o" style="width: 50%;">O (0명)</div>
@@ -62,6 +87,8 @@
                         풀이 내용
                     </div>
                 </div>
+                
+                <button class="back-btn" onclick="goToMain()" style="margin-top: 50px;">🚪 방 나가기 (메인으로)</button>
             </div>
         </div>
     </div>
@@ -72,8 +99,11 @@
         let currentRoomName = "";      
         let currentQuestionIndex = 0;  
         let currentQuestionData = {};  
+        
+        let myUserId = "출제자"; 
+        let myCurrentVote = null; 
+        let scoreChartInstance = null; 
 
-        // 처음 서버에서 데이터 가져오기
         fetch('/api/data')
             .then(response => response.json())
             .then(data => {
@@ -102,7 +132,99 @@
             document.getElementById('screen-author-list').style.display = 'block';
         }
 
+        function goToMain() {
+            if(confirm("메인 화면으로 돌아가시겠습니까?")) {
+                window.location.reload(); 
+            }
+        }
+
+        // 🌟 [핵심 변경] 메인 화면에서 종합 랭킹 보드 띄우기
+        function showGlobalResultBoard() {
+            document.getElementById('screen-author-list').style.display = 'none';
+            document.getElementById('screen-result-board').style.display = 'block';
+
+            // 모든 방의 점수 데이터를 서버에서 가져옵니다!
+            fetch('/api/scores')
+                .then(res => res.json())
+                .then(allScores => {
+                    renderStackedChart(allScores);
+                });
+        }
+
+        function goBackToMainFromBoard() {
+            document.getElementById('screen-result-board').style.display = 'none';
+            document.getElementById('screen-author-list').style.display = 'block';
+        }
+
+        // 🌟 [핵심 변경] 누구의 문제에서 몇 점을 얻었는지 층층이 쌓아주는 누적 막대그래프!
+        function renderStackedChart(allScores) {
+            const ctx = document.getElementById('scoreChart').getContext('2d');
+            if (scoreChartInstance) scoreChartInstance.destroy();
+
+            // 1. 점수가 있는 '모든 유저'의 이름 뽑아내기
+            const usersSet = new Set();
+            for (const room in allScores) {
+                for (const user in allScores[room]) {
+                    usersSet.add(user);
+                }
+            }
+            const users = Array.from(usersSet);
+
+            // 데이터가 아예 없을 때의 예외 처리
+            if (users.length === 0) {
+                scoreChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels: ['아직 누적된 데이터가 없습니다'], datasets: [{ data: [0] }] },
+                    options: { scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+                });
+                return;
+            }
+
+            // 2. 방(출제자)별로 색깔을 다르게 해서 데이터셋(층) 만들기
+            const datasets = [];
+            const colors = ['#4CAF50', '#2196F3', '#FF9800', '#9C27B0', '#E91E63', '#00BCD4'];
+            let colorIndex = 0;
+
+            for (const room in allScores) {
+                // 이 방에서 각 유저가 얻은 점수 배열
+                const data = users.map(user => allScores[room][user] || 0);
+                
+                datasets.push({
+                    label: `${room}의 퀴즈`,
+                    data: data,
+                    backgroundColor: colors[colorIndex % colors.length],
+                    borderRadius: 4,
+                });
+                colorIndex++;
+            }
+
+            // 3. 누적 막대그래프(Stacked Bar) 그리기
+            scoreChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: users, // X축: 유저 이름들
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { stacked: true }, // 가로로 쌓기
+                        y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } } // 세로로 쌓기
+                    },
+                    plugins: {
+                        legend: { display: true } // 상단에 어떤 색깔이 누구 퀴즈인지 표시!
+                    }
+                }
+            });
+        }
+
         function enterQuizRoom(roomName, role) {
+            if (role === '응시자') {
+                const nickname = prompt("퀴즈에 사용할 본인의 닉네임을 입력해주세요 (예: 홍길동):");
+                if (!nickname) return; 
+                myUserId = nickname;
+            }
+
             currentRoomName = roomName; 
             currentQuestionIndex = 0;   
             
@@ -116,8 +238,6 @@
             } else if (role === '응시자') {
                 document.getElementById('questioner-ui').style.display = 'none';
                 document.getElementById('respondent-ui').style.display = 'block';
-                document.getElementById('ui-ox').style.display = 'block'; 
-                document.getElementById('ui-result').style.display = 'none'; 
             }
 
             const wsUrl = `ws://${window.location.host}/ws/${encodeURIComponent(roomName)}/${encodeURIComponent(role)}`;
@@ -129,15 +249,16 @@
                 if (data.type === 'system') {
                     document.getElementById('system-messages').innerText = data.msg;
                 }
-                // 문제가 시작되었을 때
                 else if (data.type === 'start_question') {
                     currentQuestionData = data; 
+                    myCurrentVote = null; 
                     document.getElementById('question-text').innerText = data.question_text;
                     
+                    document.getElementById('btn-o').style.opacity = '1';
+                    document.getElementById('btn-x').style.opacity = '1';
+
                     if (role === '응시자') {
                         document.getElementById('ui-result').style.display = 'none';
-                        
-                        // 🔥 정답이 O/X면 버튼 화면, 아니면 주관식 화면 켜기!
                         const ans = data.answer.toUpperCase();
                         if (ans === 'O' || ans === 'X') {
                             document.getElementById('ui-ox').style.display = 'block';
@@ -148,7 +269,6 @@
                         }
                     }
                     
-                    // (이 아래는 기존과 완벽하게 동일합니다)
                     document.getElementById('gauge-o').style.width = '50%';
                     document.getElementById('gauge-o').innerText = 'O (0명)';
                     document.getElementById('gauge-x').style.width = '50%';
@@ -161,6 +281,8 @@
                         checkBtn.style.backgroundColor = '#607D8B';
                         checkBtn.style.cursor = 'not-allowed';
                         checkBtn.innerText = `🔒 정답 확인 (5명 대기중...)`;
+                        
+                        document.getElementById('monitoring-list').innerHTML = '<li style="color: #888;">아직 제출된 응답이 없습니다.</li>';
                     }
                 }
                 else if (data.type === 'update_stats') {
@@ -173,6 +295,11 @@
                         document.getElementById('gauge-o').innerText = `O (${state.o_count}명)`;
                         document.getElementById('gauge-x').style.width = xPercent + '%';
                         document.getElementById('gauge-x').innerText = `X (${state.x_count}명)`;
+                    } else {
+                        document.getElementById('gauge-o').style.width = '50%';
+                        document.getElementById('gauge-o').innerText = 'O (0명)';
+                        document.getElementById('gauge-x').style.width = '50%';
+                        document.getElementById('gauge-x').innerText = 'X (0명)';
                     }
                     
                     const container = document.getElementById('submitted-answers-container');
@@ -186,8 +313,7 @@
                     
                     if (role === '출제자') {
                         const checkBtn = document.getElementById('btn-check-answer');
-                        // 🔥 5명 카운트 로직 완벽 복구!
-                        if (state.total_answers >= 5) { 
+                        if (state.total_answers >= 1) { 
                             checkBtn.disabled = false;
                             checkBtn.style.backgroundColor = '#FF5722';
                             checkBtn.style.cursor = 'pointer';
@@ -198,9 +324,30 @@
                             checkBtn.style.cursor = 'not-allowed';
                             checkBtn.innerText = `🔒 정답 확인 (${5 - state.total_answers}명 대기중...)`;
                         }
+
+                        const monitorList = document.getElementById('monitoring-list');
+                        monitorList.innerHTML = ''; 
+                        
+                        const detailData = data.question_type === 'ox' ? state.votes_detail : state.short_answers_detail;
+                        const users = Object.keys(detailData);
+                        
+                        if (users.length === 0) {
+                            monitorList.innerHTML = '<li style="color: #888;">아직 제출된 응답이 없습니다.</li>';
+                        } else {
+                            users.forEach(user => {
+                                const li = document.createElement('li');
+                                const answerText = detailData[user];
+                                
+                                let color = '#2196F3'; 
+                                if (answerText === 'O') color = '#4CAF50';
+                                else if (answerText === 'X') color = '#F44336';
+                                
+                                li.innerHTML = `👤 <strong>${user}</strong> 님 : <span style="color: ${color}; font-weight: bold;">${answerText}</span>`;
+                                monitorList.appendChild(li);
+                            });
+                        }
                     }
                 }
-                // 🔥 서버가 정답을 보여주라고 브로드캐스트 했을 때 실행되는 부분!
                 else if (data.type === 'show_answer') {
                     if (role === '응시자') {
                         document.getElementById('ui-ox').style.display = 'none';
@@ -215,21 +362,36 @@
         }
 
         function sendAnswer(choice) {
-            ws.send(JSON.stringify({ type: 'submit_answer', question_type: 'ox', answer: choice }));
+            if (myCurrentVote === choice) {
+                myCurrentVote = null;
+                document.getElementById('btn-o').style.opacity = '1';
+                document.getElementById('btn-x').style.opacity = '1';
+                ws.send(JSON.stringify({ type: 'submit_answer', question_type: 'ox', answer: null, user_id: myUserId }));
+            } else {
+                myCurrentVote = choice;
+                if(choice === 'O') {
+                    document.getElementById('btn-o').style.opacity = '1';
+                    document.getElementById('btn-x').style.opacity = '0.3'; 
+                } else {
+                    document.getElementById('btn-o').style.opacity = '0.3';
+                    document.getElementById('btn-x').style.opacity = '1';
+                }
+                ws.send(JSON.stringify({ type: 'submit_answer', question_type: 'ox', answer: choice, user_id: myUserId }));
+            }
         }
 
         function sendShortAnswer() {
             const input = document.getElementById('short-answer-input');
             const text = input.value.trim();
             if (text === '') return alert("답안을 입력해주세요!");
-            ws.send(JSON.stringify({ type: 'submit_answer', question_type: 'short', answer: text }));
+            ws.send(JSON.stringify({ type: 'submit_answer', question_type: 'short', answer: text, user_id: myUserId }));
             input.value = ''; 
         }
 
         function startQuestion() {
             const myQuestions = globalData[currentRoomName];
             if (!myQuestions || currentQuestionIndex >= myQuestions.length) {
-                alert("🎉 준비된 모든 문제가 끝났습니다!");
+                alert("🎉 준비된 모든 문제가 끝났습니다! 메인 화면으로 돌아가 다른 사람의 문제를 풀어보세요.");
                 return;
             }
             
@@ -242,6 +404,15 @@
             }));
             
             currentQuestionIndex++;
+        }
+
+        function prevQuestion() {
+            if (currentQuestionIndex > 1) {
+                currentQuestionIndex -= 2; 
+                startQuestion();
+            } else {
+                alert("첫 번째 문제입니다!");
+            }
         }
 
         function showAnswer() {
