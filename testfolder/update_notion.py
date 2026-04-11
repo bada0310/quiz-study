@@ -1,6 +1,9 @@
 import os
 import requests
 import json
+from dotenv import load_dotenv
+
+load_dotenv()
 
 NOTION_TOKEN = os.environ.get("NOTION_TOKEN")  #  "secret_여기에_토큰_붙여넣기"
 PAGE_ID = os.environ.get("NOTION_PAGE_ID") 
