@@ -45,7 +45,6 @@ async def get_quiz_data():
     with open("quiz_db.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
-# 🌟 [수정됨] 모든 방의 점수 데이터를 한 번에 가져오는 종합 API!
 @app.get("/api/scores")
 async def get_all_scores():
     all_scores = {}
@@ -112,12 +111,14 @@ async def websocket_endpoint(websocket: WebSocket, room_name: str, role: str):
                 if not state['is_scored'] and state['current_answer']:
                     correct_ans = str(state['current_answer']).strip().lower() 
                     
-                    for uid, u_ans in state['votes'].items():
-                        if str(u_ans).strip().lower() == correct_ans:
-                            state['scores'][uid] = state['scores'].get(uid, 0) + 1
-                            
-                    for uid, u_ans in state['short_answers'].items():
-                        if str(u_ans).strip().lower() == correct_ans:
+                    # 🔥 [수정됨] O/X는 자동 채점 유지, 주관식은 출제자가 보낸 '체크박스 명단'으로 점수를 올립니다!
+                    if correct_ans in ['o', 'x']:
+                        for uid, u_ans in state['votes'].items():
+                            if str(u_ans).strip().lower() == correct_ans:
+                                state['scores'][uid] = state['scores'].get(uid, 0) + 1
+                    else:
+                        correct_users = message.get('correct_users', [])
+                        for uid in correct_users:
                             state['scores'][uid] = state['scores'].get(uid, 0) + 1
                             
                     state['is_scored'] = True 
