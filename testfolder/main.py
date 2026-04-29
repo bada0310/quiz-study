@@ -128,3 +128,5 @@ async def websocket_endpoint(websocket: WebSocket, room_name: str, role: str):
     except WebSocketDisconnect:
         manager.disconnect(websocket, room_name)
         await manager.broadcast(room_name, {"type": "system", "msg": f"[{role}] 님이 퇴장했습니다."})
+        # 아아
+        
