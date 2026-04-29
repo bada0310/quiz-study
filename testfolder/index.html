@@ -11,9 +11,7 @@
         <h1>🚀 퀴즈 방에 오신 것을 환영합니다!</h1>
         <h2 style="margin-bottom: 40px;">문제를 풀 출제자를 선택하세요</h2>
         <div id="author-list"></div>
-        
         <hr style="border: 0; border-top: 1px dashed #ccc; width: 80%; margin: 40px auto;">
-        
         <button class="submit-btn" onclick="showGlobalResultBoard()" style="background-color: #009688; font-size: 22px; width: 350px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">🏆 전체 종합 랭킹 보드 보기</button>
     </div>
 
@@ -47,8 +45,9 @@
                     <button class="submit-btn" onclick="prevQuestion()" style="background-color: #795548;">⬅️ 이전 문제</button>
                     <button class="submit-btn" onclick="startQuestion()" style="background-color: #9C27B0;">🚀 다음 문제</button>
                 </div>
-                <button id="btn-check-answer" class="submit-btn" onclick="showAnswer()" style="background-color: #607D8B; cursor: not-allowed;" disabled>
-                    🔒 정답 확인 (5명 대기중...)
+                
+                <button id="btn-check-answer" class="submit-btn" onclick="showAnswer()" style="background-color: #FF5722;">
+                    🔓 정답 확인 (제출 대기중...)
                 </button>
                 
                 <div id="monitoring-panel" style="margin-top: 30px; padding: 20px; background-color: #f8f9fa; border-radius: 10px; border: 1px solid #ddd; text-align: left; max-width: 600px; margin-left: auto; margin-right: auto;">
@@ -79,17 +78,18 @@
                     <h3 style="margin-top: 40px;">실시간 제출 답안</h3>
                     <div id="submitted-answers-container" class="answers-container"></div>
                 </div>
-
-                <div id="ui-result" style="display: none; margin-top: 30px; padding: 30px; background-color: #e8f5e9; border-radius: 15px; border: 2px solid #4CAF50;">
-                    <h2 id="result-answer-text" style="color: #2E7D32; font-size: 32px; margin-bottom: 20px;">정답: </h2>
-                    <hr style="border-top: 1px dashed #4CAF50;">
-                    <div id="result-explanation-text" style="margin-top: 20px; font-size: 18px; line-height: 1.6; text-align: left; white-space: pre-wrap;">
-                        풀이 내용
-                    </div>
-                </div>
                 
                 <button class="back-btn" onclick="goToMain()" style="margin-top: 50px;">🚪 방 나가기 (메인으로)</button>
             </div>
+
+            <div id="ui-result" style="display: none; margin-top: 30px; padding: 30px; background-color: #e8f5e9; border-radius: 15px; border: 2px solid #4CAF50;">
+                <h2 id="result-answer-text" style="color: #2E7D32; font-size: 32px; margin-bottom: 20px;">정답: </h2>
+                <hr style="border-top: 1px dashed #4CAF50;">
+                <div id="result-explanation-text" style="margin-top: 20px; font-size: 18px; line-height: 1.6; text-align: left; white-space: pre-wrap;">
+                    풀이 내용
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -138,12 +138,10 @@
             }
         }
 
-        // 🌟 [핵심 변경] 메인 화면에서 종합 랭킹 보드 띄우기
         function showGlobalResultBoard() {
             document.getElementById('screen-author-list').style.display = 'none';
             document.getElementById('screen-result-board').style.display = 'block';
 
-            // 모든 방의 점수 데이터를 서버에서 가져옵니다!
             fetch('/api/scores')
                 .then(res => res.json())
                 .then(allScores => {
@@ -156,12 +154,10 @@
             document.getElementById('screen-author-list').style.display = 'block';
         }
 
-        // 🌟 [핵심 변경] 누구의 문제에서 몇 점을 얻었는지 층층이 쌓아주는 누적 막대그래프!
         function renderStackedChart(allScores) {
             const ctx = document.getElementById('scoreChart').getContext('2d');
             if (scoreChartInstance) scoreChartInstance.destroy();
 
-            // 1. 점수가 있는 '모든 유저'의 이름 뽑아내기
             const usersSet = new Set();
             for (const room in allScores) {
                 for (const user in allScores[room]) {
@@ -170,7 +166,6 @@
             }
             const users = Array.from(usersSet);
 
-            // 데이터가 아예 없을 때의 예외 처리
             if (users.length === 0) {
                 scoreChartInstance = new Chart(ctx, {
                     type: 'bar',
@@ -180,15 +175,12 @@
                 return;
             }
 
-            // 2. 방(출제자)별로 색깔을 다르게 해서 데이터셋(층) 만들기
             const datasets = [];
             const colors = ['#4CAF50', '#2196F3', '#FF9800', '#9C27B0', '#E91E63', '#00BCD4'];
             let colorIndex = 0;
 
             for (const room in allScores) {
-                // 이 방에서 각 유저가 얻은 점수 배열
                 const data = users.map(user => allScores[room][user] || 0);
-                
                 datasets.push({
                     label: `${room}의 퀴즈`,
                     data: data,
@@ -198,29 +190,23 @@
                 colorIndex++;
             }
 
-            // 3. 누적 막대그래프(Stacked Bar) 그리기
             scoreChartInstance = new Chart(ctx, {
                 type: 'bar',
-                data: {
-                    labels: users, // X축: 유저 이름들
-                    datasets: datasets
-                },
+                data: { labels: users, datasets: datasets },
                 options: {
                     responsive: true,
                     scales: {
-                        x: { stacked: true }, // 가로로 쌓기
-                        y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } } // 세로로 쌓기
+                        x: { stacked: true },
+                        y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } }
                     },
-                    plugins: {
-                        legend: { display: true } // 상단에 어떤 색깔이 누구 퀴즈인지 표시!
-                    }
+                    plugins: { legend: { display: true } }
                 }
             });
         }
 
         function enterQuizRoom(roomName, role) {
             if (role === '응시자') {
-                const nickname = prompt("퀴즈에 사용할 본인의 닉네임을 입력해주세요 (예: 홍길동):");
+                const nickname = prompt("퀴즈에 사용할 본인의 닉네임을 입력해주세요 (예: 임건애):");
                 if (!nickname) return; 
                 myUserId = nickname;
             }
@@ -254,11 +240,12 @@
                     myCurrentVote = null; 
                     document.getElementById('question-text').innerText = data.question_text;
                     
+                    document.getElementById('ui-result').style.display = 'none';
+                    
                     document.getElementById('btn-o').style.opacity = '1';
                     document.getElementById('btn-x').style.opacity = '1';
 
                     if (role === '응시자') {
-                        document.getElementById('ui-result').style.display = 'none';
                         const ans = data.answer.toUpperCase();
                         if (ans === 'O' || ans === 'X') {
                             document.getElementById('ui-ox').style.display = 'block';
@@ -277,17 +264,14 @@
                     
                     if (role === '출제자') {
                         const checkBtn = document.getElementById('btn-check-answer');
-                        checkBtn.disabled = true;
-                        checkBtn.style.backgroundColor = '#607D8B';
-                        checkBtn.style.cursor = 'not-allowed';
-                        checkBtn.innerText = `🔒 정답 확인 (5명 대기중...)`;
-                        
+                        checkBtn.innerText = `🔓 정답 확인 (제출 대기중...)`;
                         document.getElementById('monitoring-list').innerHTML = '<li style="color: #888;">아직 제출된 응답이 없습니다.</li>';
                     }
                 }
                 else if (data.type === 'update_stats') {
                     const state = data.state;
                     const totalOx = state.o_count + state.x_count;
+                    
                     if (totalOx > 0) {
                         const oPercent = Math.round((state.o_count / totalOx) * 100);
                         const xPercent = 100 - oPercent;
@@ -304,25 +288,64 @@
                     
                     const container = document.getElementById('submitted-answers-container');
                     container.innerHTML = ''; 
-                    state.short_answers.forEach(ans => {
+                    
+                    // 🔥 [수정됨] 글자 길이와 순서를 바탕으로 한 '고정된 랜덤(Stable Random)' 마스킹 로직
+                    state.short_answers.forEach((ans, idx) => {
                         const block = document.createElement('div');
                         block.className = 'answer-block';
-                        block.innerText = ans;
+                        
+                        let displayAns = ans;
+                        
+                        if (role === '응시자') {
+                            // 공백을 제외한 실제 글자의 위치(인덱스)들만 모읍니다.
+                            let validIndices = [];
+                            for (let i = 0; i < ans.length; i++) {
+                                if (ans[i] !== ' ') validIndices.push(i);
+                            }
+
+                            // 단어 길이에 따라 힌트로 보여줄 글자 수 결정
+                            let revealCount = 2;
+                            if (validIndices.length >= 5) revealCount = 3; 
+                            if (validIndices.length <= 2) revealCount = 1;
+
+                            // 위치가 깜빡이지 않도록 (제출 순서 + 단어 자체)를 조합해 고유 시드(Seed) 생성
+                            let seed = idx * 13; 
+                            for (let i = 0; i < ans.length; i++) {
+                                seed += ans.charCodeAt(i);
+                            }
+
+                            // 고정된 시드를 이용해 위치를 랜덤하게 섞기
+                            let shuffled = [...validIndices];
+                            for (let i = shuffled.length - 1; i > 0; i--) {
+                                let r = Math.abs(Math.sin(seed++)) * 10000;
+                                let j = Math.floor((r - Math.floor(r)) * (i + 1));
+                                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                            }
+
+                            // 섞인 위치 중에서 앞의 2~3개만 '보여줄 위치'로 선정
+                            let revealedSet = new Set(shuffled.slice(0, revealCount));
+
+                            // 마스킹 처리 (선정된 위치만 글자 보임, 나머지는 동그라미)
+                            let masked = "";
+                            for (let i = 0; i < ans.length; i++) {
+                                if (ans[i] === ' ') masked += ' ';       // 띄어쓰기 유지
+                                else if (revealedSet.has(i)) masked += ans[i]; // 당첨된 위치는 글자 표시
+                                else masked += '○';                     // 나머지는 가림
+                            }
+                            displayAns = masked;
+                        }
+
+                        block.innerText = displayAns;
                         container.appendChild(block);
                     });
                     
                     if (role === '출제자') {
                         const checkBtn = document.getElementById('btn-check-answer');
-                        if (state.total_answers >= 1) { 
-                            checkBtn.disabled = false;
-                            checkBtn.style.backgroundColor = '#FF5722';
-                            checkBtn.style.cursor = 'pointer';
-                            checkBtn.innerText = '🔓 정답 확인 및 해설 보기';
+                        
+                        if (state.total_answers > 0) {
+                            checkBtn.innerText = `🔓 정답 확인 (현재 ${state.total_answers}명 제출 완료)`;
                         } else {
-                            checkBtn.disabled = true;
-                            checkBtn.style.backgroundColor = '#607D8B';
-                            checkBtn.style.cursor = 'not-allowed';
-                            checkBtn.innerText = `🔒 정답 확인 (${5 - state.total_answers}명 대기중...)`;
+                            checkBtn.innerText = `🔓 정답 확인 (제출 대기중...)`;
                         }
 
                         const monitorList = document.getElementById('monitoring-list');
@@ -334,6 +357,10 @@
                         if (users.length === 0) {
                             monitorList.innerHTML = '<li style="color: #888;">아직 제출된 응답이 없습니다.</li>';
                         } else {
+                            if (data.question_type === 'short') {
+                                monitorList.innerHTML = '<li style="color: #FF5722; font-size: 15px; font-weight: bold; margin-bottom: 10px;">✅ 정답으로 인정할 사람을 체크한 뒤 [정답 확인]을 누르면 점수가 올라갑니다!</li>';
+                            }
+
                             users.forEach(user => {
                                 const li = document.createElement('li');
                                 const answerText = detailData[user];
@@ -342,7 +369,18 @@
                                 if (answerText === 'O') color = '#4CAF50';
                                 else if (answerText === 'X') color = '#F44336';
                                 
-                                li.innerHTML = `👤 <strong>${user}</strong> 님 : <span style="color: ${color}; font-weight: bold;">${answerText}</span>`;
+                                if (data.question_type === 'short') {
+                                    const isAutoCorrect = (answerText.trim().toLowerCase() === currentQuestionData.answer.trim().toLowerCase());
+                                    
+                                    li.innerHTML = `
+                                        <label style="cursor: pointer; display: flex; align-items: center;">
+                                            <input type="checkbox" class="correct-checkbox" value="${user}" ${isAutoCorrect ? 'checked' : ''} style="transform: scale(1.5); margin-right: 15px;">
+                                            <span>👤 <strong>${user}</strong> 님 : <span style="color: ${color}; font-weight: bold;">${answerText}</span></span>
+                                        </label>
+                                    `;
+                                } else {
+                                    li.innerHTML = `👤 <strong>${user}</strong> 님 : <span style="color: ${color}; font-weight: bold;">${answerText}</span>`;
+                                }
                                 monitorList.appendChild(li);
                             });
                         }
@@ -352,11 +390,11 @@
                     if (role === '응시자') {
                         document.getElementById('ui-ox').style.display = 'none';
                         document.getElementById('ui-short').style.display = 'none';
-                        document.getElementById('ui-result').style.display = 'block';
-                        
-                        document.getElementById('result-answer-text').innerText = `정답: ${currentQuestionData.answer}`;
-                        document.getElementById('result-explanation-text').innerText = currentQuestionData.explanation || "풀이가 없습니다.";
                     }
+                    
+                    document.getElementById('ui-result').style.display = 'block';
+                    document.getElementById('result-answer-text').innerText = `정답: ${currentQuestionData.answer}`;
+                    document.getElementById('result-explanation-text').innerText = currentQuestionData.explanation || "풀이가 없습니다.";
                 }
             };
         }
@@ -406,6 +444,18 @@
             currentQuestionIndex++;
         }
 
+        function showAnswer() {
+            let correctUsers = [];
+            const ans = currentQuestionData.answer ? currentQuestionData.answer.toUpperCase() : '';
+            
+            if (ans !== 'O' && ans !== 'X') {
+                const checkboxes = document.querySelectorAll('.correct-checkbox:checked');
+                checkboxes.forEach(cb => correctUsers.push(cb.value));
+            }
+            
+            ws.send(JSON.stringify({ type: 'show_answer', correct_users: correctUsers }));
+        }
+
         function prevQuestion() {
             if (currentQuestionIndex > 1) {
                 currentQuestionIndex -= 2; 
@@ -413,10 +463,6 @@
             } else {
                 alert("첫 번째 문제입니다!");
             }
-        }
-
-        function showAnswer() {
-            ws.send(JSON.stringify({ type: 'show_answer' }));
         }
     </script>
 </body>
