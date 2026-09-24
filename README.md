@@ -1,5 +1,7 @@
 # 🚀 실시간 노션 퀴즈 쇼 (Real-time Notion Quiz Platform)
 
+> **臾몄젣 ?뺤쓽 쨌 湲곗닠 ?섏궗寃곗젙 쨌 ?몃윭釉붿뒋??*? ?ы듃?대━?ㅼ뿉 ?뺣━?덉뒿?덈떎 &rarr; **[https://sungeun-portfolio.vercel.app/projects/quiz](https://sungeun-portfolio.vercel.app/projects/quiz)**
+
 스터디원들과 실시간으로 즐길 수 있는 **웹소켓(WebSocket) 기반의 인터랙티브 퀴즈 웹사이트**입니다.
 가장 익숙한 문서 툴인 '노션(Notion)'을 데이터베이스(DB)로 활용하여, 노션에 문제를 적어두기만 하면 자동으로 퀴즈 쇼 세팅이 완료됩니다.
 
